@@ -1,0 +1,128 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using dotnetapp.Data;
+using dotnetapp.Exceptions;
+using dotnetapp.Models;
+
+namespace dotnetapp.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AppointmentController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+        public AppointmentController(ApplicationDbContext context)
+        {
+            _context=context;
+        }
+
+        [HttpPost]
+        public async Task<ActionResult> CreateAppointment([FromBody] Appointment appointment)
+        {
+            if(appointment == null)
+            {
+                return BadRequest();
+            }
+            _context.Appointments.Add(appointment);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(CreateAppointment), appointment);
+        }
+
+        [HttpGet]
+        public async Task<ActionResult> GetAppointments()
+        {
+            var appointments= await _context.Appointments.Include(d => d.Doctor).ToListAsync();
+            if(appointments == null)
+            {
+                return NoContent();
+            }
+            return Ok(appointments);
+            
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult> UpdateAppointment(int id, [FromBody] Appointment appointment)
+        {
+            if(id != appointment.AppointmentId)
+            {
+                return BadRequest();
+            }
+            var upAppoint=await _context.Appointments.Include(d => d.Doctor).FirstOrDefaultAsync(a => a.AppointmentId==id);
+            if(upAppoint == null)
+            {
+                return NotFound();
+            }
+            upAppoint.AppointmentDate=appointment.AppointmentDate;
+            upAppoint.PatientName=appointment.PatientName;
+            upAppoint.Reason=appointment.Reason;
+            upAppoint.DoctorId=appointment.DoctorId;
+            await _context.SaveChangesAsync();
+            return Ok(upAppoint);
+        }
+    }
+}
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using dotnetapp.Data;
+using dotnetapp.Exceptions;
+using dotnetapp.Models;
+
+namespace dotnetapp.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class DoctorController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+        public DoctorController(ApplicationDbContext context)
+        {
+            _context=context;
+        }
+
+        [HttpPost]
+        public async Task<ActionResult> CreateDoctor([FromBody] Doctor doctor)
+        {
+            if(doctor.DoctorFee <= 0)
+            {
+                throw new PriceException("DoctorFee must be greater than 0");
+            }
+            _context.Doctors.Add(doctor);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(CreateDoctor), doctor);
+        }
+
+        [HttpGet("sortedByFee")]
+        public async Task<ActionResult> GetDoctorsSortedByFee()
+        {
+            var sortFee=await  _context.Doctors.OrderByDescending(d => d.DoctorFee).ToListAsync();
+            if(sortFee == null)
+            {
+                return NotFound();
+            }
+            return Ok(sortFee);
+            
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult> GetDoctor(int id)
+        {
+            var doctor=await  _context.Doctors.FirstOrDefaultAsync(d => d.DoctorId==id);
+            if(doctor == null)
+            {
+                return NotFound();
+            }
+            return Ok(doctor);
+
+        }
+    }
+}
